@@ -26,6 +26,8 @@ response = API_KEY.get(
 print('Reponse HTTP Status Code:', response.status_code)
 print('Response HTTP Reponse Body:', response.content)
 
+
+# Enregistrement des donnees dans un fichier JSON
 if response.status_code == 200:
     new_data = response.json()
     try:
@@ -43,6 +45,29 @@ else:
     print("Failed to retrieve data from the API. Status code:", response.status_code)
 
 
+# Données a fetch
+'''
+
+"@type": "Review",
+                            "@id": "https://www.trustpilot.com/#/schema/Review/www.intersport.fr/68b9620706358ae26b8a20fe",
+                            "itemReviewed": {
+                                "@id": "https://www.trustpilot.com/#/schema/Organization/www.intersport.fr"
+                            },
+                            "author": {
+                                "@type": "Person",
+                                "name": "Wafa KHOUILDI",
+                                "url": "https://fr.trustpilot.com/users/67eea4ad25760184a896d349/"
+                            },
+                            "datePublished": "2025-09-04T11:55:19.000Z",
+                            "headline": "J\u2019ai pu trouv\u00e9 la paire que je cherche\u2026",
+                            "reviewBody": "J\u2019ai pu trouv\u00e9 la paire que je cherche depuis un moment, elle \u00e9tait toujours en rupture et en plus je l\u2019ai eu \u00e0 -40%. Livraison tr\u00e8s rapide en moins de 48h je l\u2019ai re\u00e7u. Merci INTERSPORT",
+                            "reviewRating": {
+                                "@type": "Rating",
+                                "bestRating": "5",
+                                "worstRating": "1",
+                                "ratingValue": "5"
+
+'''
 # def fetch_html(url)
     
 
