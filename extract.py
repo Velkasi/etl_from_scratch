@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import os
 import datetime
 from scrapingbee import ScrapingBeeClient
-from fastapi import FastAPI
 import json
 
 
