@@ -1,80 +1,91 @@
-import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import os
-import datetime
-from scrapingbee import ScrapingBeeClient
-import json
+import snowflake.connector
+import pandas as pd
+import re
+from pathlib import Path
 
+API_KEY = "CTDMUER0L7R1ZDPZ9YU9YO7U6SRDNH1NL12VYJ8X79THY5F2ST6IC3LZIMYFSQRSJR7TNZ5QCVBQS5TH"  # ton token ScrapingBee ou autre proxy pour eviter le ban !
+URL = "https://fr.trustpilot.com/review/www.decathlon.fr" # Tu peux choisir celui que tu souhaite
+OUTPUT_FILE = Path(r'./reviews_all_pages.csv') # Mon chemin pour debugg et log
 
-#Creation des variables pour l'api ScrapingBee
-API_KEY = ScrapingBeeClient(api_key='CTDMUER0L7R1ZDPZ9YU9YO7U6SRDNH1NL12VYJ8X79THY5F2ST6IC3LZIMYFSQRSJR7TNZ5QCVBQS5TH')
-URL = "https://fr.trustpilot.com/review/www.intersport.fr"
-
-#Requete a l'api ScrapingBee
-response = API_KEY.get(
-    URL,
-    params = { 
-         'wait': '5000',
-         'block_ads': 'True',
-         'ai_selector': "avis",
-         'json_response': 'True',
+def get_reviews(url):
+    """
+    Scrape les avis d'une seule page Trustpilot.
+    """
+    js_scenario = {
+        "instructions": [
+            {"scroll_y": 2000},
+            {"wait": 2000},
+            {"scroll_y": 4000},
+            {"wait": 2000}
+        ]
     }
-)
 
-print('Reponse HTTP Status Code:', response.status_code)
-print('Response HTTP Reponse Body:', response.content)
+    response = requests.get(
+        "https://app.scrapingbee.com/api/v1/",
+        params={
+            "api_key": API_KEY,
+            "url": url,
+            "render_js": "true",
+            "js_scenario": str(js_scenario),
+            "wait": "5000",
+            "block_ads": "true"
+        },
+    )
 
+    soup = BeautifulSoup(response.text, "html.parser")
 
-# Enregistrement des donnees dans un fichier JSON
-if response.status_code == 200:
-    new_data = response.json()
-    try:
-        with open("data.json", "r") as json_file:
-            existing_data = json.load(json_file)
-    except (FileNotFoundError, json.decoder.JSONDecodeError):
-        existing_data = []
+    reviews_data = []
+    reviews = soup.select("article")  # chaque avis est dans un <article>
 
-    existing_data.append(new_data)
+		# Pour cette partie, il faut ce rendre sur le site web directement est regarder les balises qu'on souhaite.
+    for r in reviews:
+        author = r.select_one("[data-consumer-name-typography]")
+        country = r.select_one("[data-consumer-country-typography]")
+        author_reviews_count = r.select_one("[data-consumer-reviews-count-typography]")
+        rating = r.select_one("img[alt*='étoiles']")
+        text = r.select_one("p[data-service-review-text-typography]")
+        date = r.select_one("time")
 
-    with open("data.json", "w") as json_file:
-        json.dump(existing_data, json_file, indent=4)
-        print("Data appended to data.json file.")
-else:
-    print("Failed to retrieve data from the API. Status code:", response.status_code)
+        # Extraction de la note
+        note = None
+        if rating and "alt" in rating.attrs:
+            match = re.search(r"(\d+)", rating["alt"])
+            if match:
+                note = int(match.group(1))
 
+        reviews_data.append({
+            "author": author.get_text(strip=True) if author else None,
+            "country": country.get_text(strip=True) if country else None,
+            "author_reviews_count": author_reviews_count.get_text(strip=True) if author_reviews_count else None,
+            "rating": note,
+            "text": text.get_text(strip=True) if text else None,
+            "date": date["datetime"] if date else None,
+            "url": url
+        })
 
-# Données a fetch
-'''
+    df = pd.DataFrame(reviews_data)
+    df['timestamp'] = pd.Timestamp.now()
+    return df
 
-"@type": "Review",
-                            "@id": "https://www.trustpilot.com/#/schema/Review/www.intersport.fr/68b9620706358ae26b8a20fe",
-                            "itemReviewed": {
-                                "@id": "https://www.trustpilot.com/#/schema/Organization/www.intersport.fr"
-                            },
-                            "author": {
-                                "@type": "Person",
-                                "name": "Wafa KHOUILDI",
-                                "url": "https://fr.trustpilot.com/users/67eea4ad25760184a896d349/"
-                            },
-                            "datePublished": "2025-09-04T11:55:19.000Z",
-                            "headline": "J\u2019ai pu trouv\u00e9 la paire que je cherche\u2026",
-                            "reviewBody": "J\u2019ai pu trouv\u00e9 la paire que je cherche depuis un moment, elle \u00e9tait toujours en rupture et en plus je l\u2019ai eu \u00e0 -40%. Livraison tr\u00e8s rapide en moins de 48h je l\u2019ai re\u00e7u. Merci INTERSPORT",
-                            "reviewRating": {
-                                "@type": "Rating",
-                                "bestRating": "5",
-                                "worstRating": "1",
-                                "ratingValue": "5"
+if __name__ == "__main__":
+    all_reviews = []
 
-'''
-# def fetch_html(url)
-    
+    NUM_PAGES = 5  # !!! AJUSTER selon le nombre d'avis que tu veux récupérer !!!
+    for page in range(1, NUM_PAGES + 1):
+        page_url = f"{URL}?page={page}"
+        print(f"Scraping page {page}...")
+        df_page = get_reviews(page_url)
+        all_reviews.append(df_page)
 
+    # Concaténer toutes les pages dans 1 dataframe
+    df_all = pd.concat(all_reviews, ignore_index=True)
 
+    # Créer le dossier si nécessaire
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-# parse_reviews(html)
-
-
-
-
-# to_dataframe(reviews)
+    # Sauvegarder CSV
+    df_all.to_csv(OUTPUT_FILE, index=False) 
+    print(f"Avis récup : {len(df_all)}") # Verification du nombre d'avis
+    print(df_all.head()) # Debug (print les 5 premier avis)
