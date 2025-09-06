@@ -55,10 +55,19 @@ def get_reviews(url):
             if match:
                 note = int(match.group(1))
 
+
+        author_reviews_count_value = None
+        if author_reviews_count:  # Si l'élément existe
+            text_count = author_reviews_count.get_text(strip=True)
+            if text_count:  # si texte non vide
+                match = re.search(r'\d+', str(text_count))
+                if match:
+                    author_reviews_count_value = int(match.group())
+
         reviews_data.append({
             "author": author.get_text(strip=True) if author else None,
             "country": country.get_text(strip=True) if country else None,
-            "author_reviews_count": author_reviews_count.get_text(strip=True) if author_reviews_count else None,
+            "author_reviews_count": author_reviews_count_value,
             "rating": note,
             "text": text.get_text(strip=True) if text else None,
             "date": date["datetime"] if date else None,
